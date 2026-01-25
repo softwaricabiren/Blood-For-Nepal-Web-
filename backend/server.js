@@ -226,6 +226,216 @@ app.post('/api/contact', async (req, res) => {
   }
 });
 
+// Blood request endpoints
+app.post('/api/blood-requests', async (req, res) => {
+  try {
+    const {
+      patientName,
+      bloodGroup,
+      unitsNeeded,
+      hospital,
+      province,
+      city,
+      contactName,
+      contactPhone,
+      contactEmail,
+      urgency,
+      additionalInfo,
+    } = req.body;
+
+    // Validation
+    if (!patientName || !bloodGroup || !unitsNeeded || !hospital || !contactPhone) {
+      return res.status(400).json({
+        error: 'Patient name, blood group, units needed, hospital, and contact phone are required',
+      });
+    }
+
+    // Get user ID if authenticated
+    let userId = null;
+    if (req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        userId = decoded.id;
+      } catch (err) {
+        // Token invalid, continue without user ID
+      }
+    }
+
+    const bloodRequest = await prisma.bloodRequest.create({
+      data: {
+        patientName,
+        bloodGroup,
+        unitsNeeded: parseInt(unitsNeeded),
+        hospital,
+        province,
+        city,
+        contactName,
+        contactPhone,
+        contactEmail,
+        urgency: urgency || 'Normal',
+        additionalInfo,
+        userId,
+      },
+    });
+
+    res.status(201).json({
+      ok: true,
+      message: 'Blood request submitted successfully',
+      request: bloodRequest,
+    });
+  } catch (error) {
+    console.error('Error creating blood request:', error);
+    res.status(500).json({ error: 'Failed to submit blood request' });
+  }
+});
+
+// Get all blood requests (with optional filters)
+app.get('/api/blood-requests', async (req, res) => {
+  try {
+    const { bloodGroup, province, status, urgency } = req.query;
+    
+    const where = {};
+    if (bloodGroup) where.bloodGroup = bloodGroup;
+    if (province) where.province = province;
+    if (status) where.status = status;
+    if (urgency) where.urgency = urgency;
+
+    const requests = await prisma.bloodRequest.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    res.json({ ok: true, requests });
+  } catch (error) {
+    console.error('Error fetching blood requests:', error);
+    res.status(500).json({ error: 'Failed to fetch blood requests' });
+  }
+});
+
+// Get blood request by ID
+app.get('/api/blood-requests/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.bloodRequest.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!request) {
+      return res.status(404).json({ error: 'Blood request not found' });
+    }
+
+    res.json({ ok: true, request });
+  } catch (error) {
+    console.error('Error fetching blood request:', error);
+    res.status(500).json({ error: 'Failed to fetch blood request' });
+  }
+});
+
+// Update blood request status (protected route)
+app.patch('/api/blood-requests/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const request = await prisma.bloodRequest.update({
+      where: { id: parseInt(id) },
+      data: { status },
+    });
+
+    res.json({ ok: true, message: 'Status updated', request });
+  } catch (error) {
+    console.error('Error updating blood request:', error);
+    res.status(500).json({ error: 'Failed to update blood request' });
+  }
+});
+
+// Search for donors
+app.get('/api/donors/search', async (req, res) => {
+  try {
+    const { bloodGroup, province } = req.query;
+
+    if (!bloodGroup) {
+      return res.status(400).json({ error: 'Blood group is required' });
+    }
+
+    const where = { bloodGroup };
+    if (province) where.province = province;
+
+    const donors = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        bloodGroup: true,
+        province: true,
+        phone: true,
+        email: true,
+      },
+      take: 50,
+    });
+
+    res.json({ ok: true, donors });
+  } catch (error) {
+    console.error('Error searching donors:', error);
+    res.status(500).json({ error: 'Failed to search donors' });
+  }
+});
+
+// Update user profile (protected route)
+app.put('/api/me', authenticateToken, async (req, res) => {
+  try {
+    const { name, phone, bloodGroup, province } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (bloodGroup) updateData.bloodGroup = bloodGroup;
+    if (province !== undefined) updateData.province = province;
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+    });
+
+    res.json({
+      ok: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        bloodGroup: user.bloodGroup,
+        province: user.province,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Get user's blood requests (protected route)
+app.get('/api/me/blood-requests', authenticateToken, async (req, res) => {
+  try {
+    const requests = await prisma.bloodRequest.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ ok: true, requests });
+  } catch (error) {
+    console.error('Error fetching user blood requests:', error);
+    res.status(500).json({ error: 'Failed to fetch requests' });
+  }
+});
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
   await prisma.$disconnect();

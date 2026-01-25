@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Register from './components/Register.jsx';
 import Login from './components/Login.jsx';
 import UserProfile from './components/UserProfile.jsx';
+import BloodRequest from './components/BloodRequest.jsx';
+import DonorSearch from './components/DonorSearch.jsx';
+import About from './components/About.jsx';
 
 function AppContent() {
   const { user, logout, loading } = useAuth();
@@ -15,6 +18,9 @@ function AppContent() {
       if (h === '#register') setPage('register');
       else if (h === '#login') setPage('login');
       else if (h === '#profile') setPage('profile');
+      else if (h === '#request') setPage('request');
+      else if (h === '#donor') setPage('donor');
+      else if (h === '#about') setPage('about');
       else setPage('home');
     };
     applyHash();
@@ -165,6 +171,18 @@ function AppContent() {
 
       {page === 'profile' && user && (
         <UserProfile />
+      )}
+
+      {page === 'request' && (
+        <BloodRequest />
+      )}
+
+      {page === 'donor' && (
+        <DonorSearch />
+      )}
+
+      {page === 'about' && (
+        <About />
       )}
 
       {/* Footer */}

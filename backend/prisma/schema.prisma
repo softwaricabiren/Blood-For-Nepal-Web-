@@ -37,3 +37,22 @@ model Contact {
   message   String
   createdAt DateTime @default(now())
 }
+
+model BloodRequest {
+  id             Int      @id @default(autoincrement())
+  patientName    String
+  bloodGroup     String
+  unitsNeeded    Int
+  hospital       String
+  province       String?
+  city           String?
+  contactName    String?
+  contactPhone   String
+  contactEmail   String?
+  urgency        String   @default("Normal")
+  additionalInfo String?
+  status         String   @default("Pending")
+  userId         Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
