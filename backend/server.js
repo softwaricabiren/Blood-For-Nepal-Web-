@@ -33,6 +33,23 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware to verify admin role
+const authenticateAdmin = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+    });
+
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({ error: 'Authorization failed' });
+  }
+};
+
 // Authentication endpoints
 app.post('/api/register', async (req, res) => {
   try {
@@ -136,7 +153,7 @@ app.post('/api/login', async (req, res) => {
         email: user.email,
         phone: user.phone,
         bloodGroup: user.bloodGroup,
-        province: user.province,
+        province: user.province,        role: user.role || 'user',        role: user.role || 'user',
       },
     });
   } catch (error) {
@@ -165,6 +182,7 @@ app.get('/api/me', authenticateToken, async (req, res) => {
         phone: user.phone,
         bloodGroup: user.bloodGroup,
         province: user.province,
+        role: user.role || 'user',
       },
     });
   } catch (error) {
@@ -433,6 +451,251 @@ app.get('/api/me/blood-requests', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching user blood requests:', error);
     res.status(500).json({ error: 'Failed to fetch requests' });
+  }
+});
+
+// ============ ADMIN ENDPOINTS ============
+
+// Get all users (admin only)
+app.get('/api/admin/users', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search = '' } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const where = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ],
+    } : {};
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          bloodGroup: true,
+          province: true,
+          role: true,
+          createdAt: true,
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    res.json({ ok: true, users, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get all blood requests (admin only)
+app.get('/api/admin/blood-requests', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50, status, urgency } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const where = {};
+    if (status) where.status = status;
+    if (urgency) where.urgency = urgency;
+
+    const [requests, total] = await Promise.all([
+      prisma.bloodRequest.findMany({
+        where,
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.bloodRequest.count({ where }),
+    ]);
+
+    res.json({ ok: true, requests, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (error) {
+    console.error('Error fetching blood requests:', error);
+    res.status(500).json({ error: 'Failed to fetch blood requests' });
+  }
+});
+
+// Update blood request (admin only)
+app.patch('/api/admin/blood-requests/:id', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+
+    const request = await prisma.bloodRequest.update({
+      where: { id: parseInt(id) },
+      data: { status },
+    });
+
+    res.json({ ok: true, message: 'Status updated', request });
+  } catch (error) {
+    console.error('Error updating blood request:', error);
+    res.status(500).json({ error: 'Failed to update blood request' });
+  }
+});
+
+// Delete blood request (admin only)
+app.delete('/api/admin/blood-requests/:id', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.bloodRequest.delete({
+      where: { id: parseInt(id) },
+    });
+
+    res.json({ ok: true, message: 'Blood request deleted' });
+  } catch (error) {
+    console.error('Error deleting blood request:', error);
+    res.status(500).json({ error: 'Failed to delete blood request' });
+  }
+});
+
+// Get all volunteers (admin only)
+app.get('/api/admin/volunteers', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [volunteers, total] = await Promise.all([
+      prisma.volunteer.findMany({
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.volunteer.count(),
+    ]);
+
+    res.json({ ok: true, volunteers, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (error) {
+    console.error('Error fetching volunteers:', error);
+    res.status(500).json({ error: 'Failed to fetch volunteers' });
+  }
+});
+
+// Get all contacts (admin only)
+app.get('/api/admin/contacts', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [contacts, total] = await Promise.all([
+      prisma.contact.findMany({
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.contact.count(),
+    ]);
+
+    res.json({ ok: true, contacts, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (error) {
+    console.error('Error fetching contacts:', error);
+    res.status(500).json({ error: 'Failed to fetch contacts' });
+  }
+});
+
+// Get admin dashboard stats
+app.get('/api/admin/stats', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      totalRequests,
+      pendingRequests,
+      completedRequests,
+      totalVolunteers,
+      totalContacts,
+      recentUsers,
+      recentRequests,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.bloodRequest.count(),
+      prisma.bloodRequest.count({ where: { status: 'Pending' } }),
+      prisma.bloodRequest.count({ where: { status: 'Completed' } }),
+      prisma.volunteer.count(),
+      prisma.contact.count(),
+      prisma.user.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, name: true, email: true, bloodGroup: true, createdAt: true },
+      }),
+      prisma.bloodRequest.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, patientName: true, bloodGroup: true, urgency: true, status: true, createdAt: true },
+      }),
+    ]);
+
+    res.json({
+      ok: true,
+      stats: {
+        totalUsers,
+        totalRequests,
+        pendingRequests,
+        completedRequests,
+        totalVolunteers,
+        totalContacts,
+      },
+      recentUsers,
+      recentRequests,
+    });
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+// Update user role (admin only)
+app.patch('/api/admin/users/:id/role', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!role || !['user', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Valid role is required' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { role },
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    res.json({ ok: true, message: 'User role updated', user });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// Delete user (admin only)
+app.delete('/api/admin/users/:id', authenticateToken, authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Prevent admin from deleting themselves
+    if (parseInt(id) === req.user.id) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    await prisma.user.delete({
+      where: { id: parseInt(id) },
+    });
+
+    res.json({ ok: true, message: 'User deleted' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 });
 

@@ -3,10 +3,16 @@ import { FaTint, FaUsers, FaHospital, FaMapMarkerAlt, FaFacebookF, FaTwitter, Fa
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Register from './components/Register.jsx';
 import Login from './components/Login.jsx';
+import bloodImage from './blood.png';
 import UserProfile from './components/UserProfile.jsx';
 import BloodRequest from './components/BloodRequest.jsx';
 import DonorSearch from './components/DonorSearch.jsx';
 import About from './components/About.jsx';
+import AdminDashboard from './components/AdminDashboard.jsx';
+import AdminUsers from './components/AdminUsers.jsx';
+import AdminRequests from './components/AdminRequests.jsx';
+import AdminVolunteers from './components/AdminVolunteers.jsx';
+import AdminContacts from './components/AdminContacts.jsx';
 
 function AppContent() {
   const { user, logout, loading } = useAuth();
@@ -21,6 +27,11 @@ function AppContent() {
       else if (h === '#request') setPage('request');
       else if (h === '#donor') setPage('donor');
       else if (h === '#about') setPage('about');
+      else if (h === '#admin') setPage('admin');
+      else if (h === '#admin-users') setPage('admin-users');
+      else if (h === '#admin-requests') setPage('admin-requests');
+      else if (h === '#admin-volunteers') setPage('admin-volunteers');
+      else if (h === '#admin-contacts') setPage('admin-contacts');
       else setPage('home');
     };
     applyHash();
@@ -43,7 +54,7 @@ function AppContent() {
 
   return (
     <div>
-      {/* Navbar */}
+      {}
       <header className="container nav">
         <div className="left">
           <span style={{ fontSize: 20 }}>🩸</span>
@@ -53,6 +64,9 @@ function AppContent() {
             <li><a href="#about">About</a></li>
             <li><a href="#donor">Become a Donor</a></li>
             <li><a href="#request">Request Blood</a></li>
+            {user && user.role === 'admin' && (
+              <li><a href="#admin">Admin</a></li>
+            )}
           </ul>
         </div>
         <div className="actions">
@@ -75,7 +89,7 @@ function AppContent() {
 
       {page === 'home' && (
         <>
-          {/* Hero */}
+          {}
           <section className="hero">
             <div className="container wrap">
               <div>
@@ -91,7 +105,7 @@ function AppContent() {
                   <a className="btn-outline btn" href="#request">Request Blood</a>
                 </div>
               </div>
-              <img alt="Mountains at night" src="https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop" />
+              <img alt="Blood donation" src={bloodImage} />
             </div>
             <div className="container stats-row">
               <div className="stat-box">
@@ -113,7 +127,7 @@ function AppContent() {
             </div>
           </section>
 
-          {/* Why Choose Us */}
+          {}
           <section className="section">
             <div className="container">
               <h2 className="section-title">Why Choose Us?</h2>
@@ -143,7 +157,7 @@ function AppContent() {
             </div>
           </section>
 
-          {/* CTA band */}
+          {}
           <section className="cta-band">
             <div className="container">
               <h2>Ready to make a difference?</h2>
@@ -185,7 +199,27 @@ function AppContent() {
         <About />
       )}
 
-      {/* Footer */}
+      {page === 'admin' && user && user.role === 'admin' && (
+        <AdminDashboard />
+      )}
+
+      {page === 'admin-users' && user && user.role === 'admin' && (
+        <AdminUsers />
+      )}
+
+      {page === 'admin-requests' && user && user.role === 'admin' && (
+        <AdminRequests />
+      )}
+
+      {page === 'admin-volunteers' && user && user.role === 'admin' && (
+        <AdminVolunteers />
+      )}
+
+      {page === 'admin-contacts' && user && user.role === 'admin' && (
+        <AdminContacts />
+      )}
+
+      {}
       <footer className="footer">
         <div className="container grid">
           <div>
