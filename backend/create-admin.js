@@ -4,19 +4,16 @@ import bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function createAdmin() {
-  // Admin credentials
-  const adminEmail = 'admin@bloodfornepal.com';
+ const adminEmail = 'admin@bloodfornepal.com';
   const adminPassword = 'Admin@123';
   const adminName = 'System Administrator';
 
   try {
-    // Check if admin already exists
     const existingAdmin = await prisma.user.findUnique({
       where: { email: adminEmail }
     });
 
     if (existingAdmin) {
-      // Update to admin role if exists
       const user = await prisma.user.update({
         where: { email: adminEmail },
         data: { role: 'admin' }
@@ -27,7 +24,6 @@ async function createAdmin() {
       console.log('🔑 Password:', adminPassword);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } else {
-      // Create new admin user
       const hashedPassword = await bcrypt.hash(adminPassword, 10);
       
       const admin = await prisma.user.create({
